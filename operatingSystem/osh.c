@@ -12,14 +12,15 @@ void fatal(const char *str);                                     // error 처리
 int parsing(char *cmdline, const char *delimiters, char **args); //cmdline 파싱
 int redirectIn(char **args);                                     //redirecting Input
 int redirectOut(char **args);                                    //redirecting Ouput
-int pipefunc(char **args);                                       // pipe 명령어 수행
+int pipefunc(char **args);                                       // pipe
+
+int isbackground = 0;
 
 int main(void)
 {
     char cmdline[MAX_LINE];       // 명령어 파싱 전 문자열
     char *args[MAX_LINE / 2 + 1]; /* command line arguments */
     int should_run = 1;           /* flag to determine when to exit program */
-    int isbackgorund = 0;
 
     while (should_run)
     {
@@ -29,10 +30,14 @@ int main(void)
         fgets(cmdline, MAX_LINE, stdin); // 사용자 입력 받아오기
         cmdline[strlen(cmdline) - 1] = '\0';
         int cnt = parsing(cmdline, " ", args); // cmdline 파싱
-        args[cnt] = NULL; // 배열의 마지막 인자는 null
+        args[cnt] = NULL;                      // 배열의 마지막 인자는 null
+        int piped = 0;
 
         if (!strcmp(args[cnt - 1], "&"))
-            isbackgorund = 1;
+        {
+            isbackground = 1;
+            args[cnt - 1] = NULL;
+        }
 
         if (!strcmp("exit", args[0])) // exit 입력시 쉘 종료
             should_run = 0;
@@ -45,7 +50,8 @@ int main(void)
                 fatal("fork error");
             else if (pid == 0) //child process
             {
-                for (int i = 0; args[i] != NULL; i++){ // redirection 검사 
+                for (int i = 0; args[i] != NULL; i++) // redirection 검사
+                {
                     if (!strcmp(args[i], "<"))
                     {
                         redirectIn(args);
@@ -62,20 +68,28 @@ int main(void)
                     }
                 }
 
-                for (int i = 0; args[i] != NULL; i++){ // pipe 검사
+                for (int i = 0; args[i] != NULL; i++) // pipe 검사
+                {
                     if (!strcmp(args[i], "|"))
                     {
-                        pipefunc(args);
+                        pipefunc(args); // 실행
                         break;
                     }
                 }
+
                 if (execvp(args[0], args) == -1)
                     fatal("execvp error");
             }
             else //parent process
             {
-                if (!isbackgorund)
-                    wait(NULL);
+                if (isbackground)
+                {
+                    printf("background_pid : %d \n", getpid());
+                    printf("----------------\n");
+                    isbackground = 0;
+                    continue;
+                }
+                wait(NULL);
                 continue;
             }
         }
@@ -121,14 +135,13 @@ int redirectIn(char **args) //redirecting Input
             fatal("redirectIn error");
         else
         {
-            if ((fd = open(args[i + 1], O_RDONLY) == -1))
+            if ((fd = open(args[i + 1], O_RDONLY)) == -1)
                 fatal("file open error");
+            dup2(fd, STDIN_FILENO);
+            close(fd);
+            args[i] = NULL;
+            args[i + 1] = NULL;
         }
-        dup2(fd, STDIN_FILENO);
-        close(fd);
-        for (i = i; args[i] != NULL; i++)
-            args[i] = args[i + 2];
-        args[i] = NULL;
     }
     return 0;
 }
@@ -147,19 +160,18 @@ int redirectOut(char **args) //redirecting Ouput
             fatal("redirectOut error");
         else
         {
-            if ((fd = open(args[i + 1], O_RDWR | O_CREAT | O_TRUNC, 0644) == -1))
+            if ((fd = open(args[i + 1], O_RDWR | O_CREAT | O_TRUNC, 0644)) == -1)
                 fatal("file open error");
+            dup2(fd, STDOUT_FILENO);
+            close(fd);
+            args[i] = NULL;
+            args[i + 1] = NULL;
         }
-        dup2(fd, STDOUT_FILENO);
-        close(fd);
-        for (i = i; args[i] != NULL; i++)
-            args[i] = args[i + 2];
-        args[i] = NULL;
     }
     return 0;
 }
 
-int pipefunc(char **args) // pipe 명령어 수행
+int pipefunc(char **args) // pipe
 {
 
     int i, j, existpipe = 0, fd[2]; //fd[0]-readEnd , fd[1]-rwriteEnd
@@ -177,35 +189,35 @@ int pipefunc(char **args) // pipe 명령어 수행
         args1[i] = args[i];
     }
 
-    if (existpipe) // 파이프 명령어 있는 경우
+    if (existpipe) // 파이프 명령어가 있는 경우
     {
         args1[i] = NULL;
-        for (j = 0; args[j+i+1] != NULL; j++)
-            args2[j] = args[j+i+1];
-        args2[j+i+1] = NULL;
+        for (j = 0; args[j + i + 1] != NULL; j++)
+            args2[j] = args[j + i + 1];
+        args2[j + i + 1] = NULL;
 
         if (pipe(fd) == -1)
             fatal("pipe error");
-        
+
         pid = fork();
         if (pid < 0) // fork error
             fatal("fork error");
-        else if (pid == 0) //child process (read)
+        else if (pid == 0)
         {
-            close(fd[0]);
             dup2(fd[1], STDOUT_FILENO);
+            close(fd[0]);
             if (execvp(args1[0], args1) == -1)
                 fatal("execvp error");
         }
-        else // parent process (write)
+        else
         {
+            dup2(fd[0], STDIN_FILENO);
             close(fd[1]);
-            dup2(fd[0], STDIN_FILENO); 
             if (execvp(args2[0], args2) == -1)
                 fatal("execvp error");
         }
     }
-    else //pipe 명령어 없는 경우
+    else //pipe 명령어가 없는 경우
         return 0;
     return 1;
 }

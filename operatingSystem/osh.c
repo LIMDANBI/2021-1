@@ -84,7 +84,7 @@ int main(void)
                 if (isbackground)
                 {
                     printf("background_pid : %d \n", getpid());
-                    printf("----------------\n");
+                    printf("------------------------\n");
                     isbackground = 0;
                     continue;
                 }

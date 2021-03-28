@@ -31,7 +31,6 @@ int main(void)
         cmdline[strlen(cmdline) - 1] = '\0';
         int cnt = parsing(cmdline, " ", args); // cmdline 파싱
         args[cnt] = NULL;                      // 배열의 마지막 인자는 null
-        int piped = 0;
 
         if (!strcmp(args[cnt - 1], "&"))
         {

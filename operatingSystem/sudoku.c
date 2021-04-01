@@ -40,7 +40,7 @@ void *check_rows(void *arg)
         int isvalid=1; // 한 row의 1~9가 정확히 한번씩 등장한다면 1 / 아니라면 0 (즉 valid = 1 / non-vlaid = 0)
         for(int j=0; j<9; j++){
             if(sudoku[i][j] < 1 || 9 < sudoku[i][j]) { // 1~9 이외의 값이 sudoku 배열에 들어있을시 예외 처리
-                fprintf(stderr, "잘못된 값이 sdoku 배열에 들어있습니다.");
+                fprintf(stderr, "Invalid value in sdoku array.");
                 pthread_exit(NULL);
             }
             else num[sudoku[i][j]-1]++; //제대로 된 값일 경우 해당 값 ++;
@@ -67,7 +67,7 @@ void *check_columns(void *arg)
         int num[9] = {0, }, isvalid=1;
         for(int j=0; j<9; j++){
             if( sudoku[j][i] < 1 || 9 < sudoku[j][i]) {
-                fprintf(stderr, "잘못된 값이 sdoku 배열에 들어있습니다.");
+                fprintf(stderr, "Invalid value in sdoku array.");
                 pthread_exit(NULL);
             }
             else num[sudoku[j][i]-1]++;
@@ -100,7 +100,7 @@ void *check_subgrid(void *arg)
     for(int i=row; i<row+3; i++){
         for(int j=col; j<col+3; j++){
             if( sudoku[i][j] < 1 || 9 < sudoku[i][j]) {
-                fprintf(stderr, "잘못된 값이 sdoku 배열에 들어있습니다.");
+                fprintf(stderr, "Invalid value in sdoku array.");
                 pthread_exit(NULL);
             }
             else num[sudoku[i][j]-1]++;
@@ -140,14 +140,14 @@ void check_sudoku(void)
     
     if( pthread_create(&p_thread[0], NULL, check_rows, NULL) !=0)
     {
-        fprintf(stderr, "pthread_create error: shuffle_sudoku\n");
+        fprintf(stderr, "pthread_create error: check_rows\n");
         exit(-1);
     }
 
     // 스레드를 생성하여 각 열을 검사하는 check_columns() 함수를 실행
     if(pthread_create(&p_thread[1], NULL,check_columns, NULL)!=0)
     {
-        fprintf(stderr, "pthread_create error: shuffle_sudoku\n");
+        fprintf(stderr, "pthread_create error: check_columns\n");
         exit(-1);
     }
 
@@ -163,7 +163,7 @@ void check_sudoku(void)
             data->column = j;
             if(pthread_create(&p_thread[i+j/3+2], NULL, check_subgrid, data)!=0)
             {
-                fprintf(stderr, "pthread_create error: shuffle_sudoku\n");
+                fprintf(stderr, "pthread_create error: check_subgrid\n");
                 exit(-1);
             }
         }

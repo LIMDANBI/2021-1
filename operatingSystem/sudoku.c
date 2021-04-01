@@ -41,7 +41,7 @@ void *check_rows(void *arg)
         for(int j=0; j<9; j++){
             if(sudoku[i][j] < 1 || 9 < sudoku[i][j]) { // 1~9 이외의 값이 sudoku 배열에 들어있을시 예외 처리
                 fprintf(stderr, "Invalid value in sdoku array.");
-                pthread_exit(NULL);
+                exit(-1);
             }
             else num[sudoku[i][j]-1]++; //제대로 된 값일 경우 해당 값 ++;
         }
@@ -68,7 +68,7 @@ void *check_columns(void *arg)
         for(int j=0; j<9; j++){
             if( sudoku[j][i] < 1 || 9 < sudoku[j][i]) {
                 fprintf(stderr, "Invalid value in sdoku array.");
-                pthread_exit(NULL);
+                exit(-1);
             }
             else num[sudoku[j][i]-1]++;
         }
@@ -101,7 +101,7 @@ void *check_subgrid(void *arg)
         for(int j=col; j<col+3; j++){
             if( sudoku[i][j] < 1 || 9 < sudoku[i][j]) {
                 fprintf(stderr, "Invalid value in sdoku array.");
-                pthread_exit(NULL);
+                exit(-1);
             }
             else num[sudoku[i][j]-1]++;
         }

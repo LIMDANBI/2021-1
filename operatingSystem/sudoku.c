@@ -36,16 +36,17 @@ int valid[3][9] = { 0, };
 void *check_rows(void *arg)
 {
     for(int i=0; i<9; i++){
-        int num[9] = {0, }, isvalid=1;
+        int num[9] = {0, }; // 1~9가 정확히 한번씩만 등장함을 검사하기 위한 배열 
+        int isvalid=1; // 한 row의 1~9가 정확히 한번씩 등장한다면 1 / 아니라면 0 (즉 valid = 1 / non-vlaid = 0)
         for(int j=0; j<9; j++){
-            if(sudoku[i][j] < 0 || 9 < sudoku[i][j]) {
+            if(sudoku[i][j] < 1 || 9 < sudoku[i][j]) { // 1~9 이외의 값이 sudoku 배열에 들어있을시 예외 처리
                 fprintf(stderr, "잘못된 값이 sdoku 배열에 들어있습니다.");
                 pthread_exit(NULL);
             }
-            else num[sudoku[i][j]-1]++;
+            else num[sudoku[i][j]-1]++; //제대로 된 값일 경우 해당 값 ++;
         }
-        for(int j=0; j<9; j++){
-            if(num[j]!=1){
+        for(int j=0; j<9; j++){ 
+            if(num[j]!=1){ // 1~9가 정확히 한번씩만 등장하지 않았다면 vlid = 0
                 isvalid = 0;
                 break;
             }
@@ -65,7 +66,7 @@ void *check_columns(void *arg)
     for(int i=0; i<9; i++){
         int num[9] = {0, }, isvalid=1;
         for(int j=0; j<9; j++){
-            if( sudoku[j][i] < 0 || 9 < sudoku[j][i]) {
+            if( sudoku[j][i] < 1 || 9 < sudoku[j][i]) {
                 fprintf(stderr, "잘못된 값이 sdoku 배열에 들어있습니다.");
                 pthread_exit(NULL);
             }
@@ -98,7 +99,7 @@ void *check_subgrid(void *arg)
 
     for(int i=row; i<row+3; i++){
         for(int j=col; j<col+3; j++){
-            if( sudoku[i][j] < 0 || 9 < sudoku[i][j]) {
+            if( sudoku[i][j] < 1 || 9 < sudoku[i][j]) {
                 fprintf(stderr, "잘못된 값이 sdoku 배열에 들어있습니다.");
                 pthread_exit(NULL);
             }

@@ -137,10 +137,19 @@ void check_sudoku(void)
     printf("---\n");
 
     // 스레드를 생성하여 각 행을 검사하는 check_rows() 함수를 실행
-    pthread_create(&p_thread[0], NULL, check_rows, NULL);
+    
+    if( pthread_create(&p_thread[0], NULL, check_rows, NULL) !=0)
+    {
+        fprintf(stderr, "pthread_create error: shuffle_sudoku\n");
+        exit(-1);
+    }
 
     // 스레드를 생성하여 각 열을 검사하는 check_columns() 함수를 실행
-    pthread_create(&p_thread[1], NULL,check_columns, NULL);
+    if(pthread_create(&p_thread[1], NULL,check_columns, NULL)!=0)
+    {
+        fprintf(stderr, "pthread_create error: shuffle_sudoku\n");
+        exit(-1);
+    }
 
     /*
      * 9개의 스레드를 생성하여 각 3x3 서브그리드를 검사하는 check_subgrid() 함수를 실행한다.
@@ -152,7 +161,11 @@ void check_sudoku(void)
             parameters *data = (parameters *)malloc(sizeof(parameters));
             data->row = i;
             data->column = j;
-            pthread_create(&p_thread[i+j/3+2], NULL, check_subgrid, data);
+            if(pthread_create(&p_thread[i+j/3+2], NULL, check_subgrid, data)!=0)
+            {
+                fprintf(stderr, "pthread_create error: shuffle_sudoku\n");
+                exit(-1);
+            }
         }
     }
 

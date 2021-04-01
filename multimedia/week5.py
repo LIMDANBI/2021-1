@@ -42,7 +42,7 @@ plt.title("Low contrast image")
 plt.show()
 
 # 영상의 최소, 최대 밝기 계산
-max_value = 255 # 영상의 최대 밝기 
+max_value = 0 # 영상의 최대 밝기  
 min_value = 0 # 영상의 최소 밝기 
 
 for i in np.arange(0,256,1): # 0->255로 탐색하며 최소 밝기 찾기
@@ -59,7 +59,7 @@ print("최소 밝기: ", min_value)
 print("최대 밝기: ", max_value)
 
 # 노이즈에 강건한 최소, 최대 밝기 계산 (픽셀 개수 5% 미만까지는 skip)
-max_value = 255 # 영상의 최대 밝기 
+max_value = 0 # 영상의 최대 밝기 
 min_value = 0 # 영상의 최소 밝기 
 
 sum_low = 0
@@ -137,7 +137,7 @@ T = np.zeros((256))
 hist_sum = 0
 for i in range(256):
     hist_sum += lena_hist[i]
-    T[i] = int(hist_sum/unit)
+    T[i] = np.uint8(hist_sum/unit)
 print("T: ", T)
 
 for i in range(h):

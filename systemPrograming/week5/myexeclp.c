@@ -17,16 +17,26 @@ extern char **environ;
  * @return 실패했을 경우 -1, 성공 시 반환 값 없음
  */
 int myexeclp(const char *file, const char *args, ...){
-  char path[MAXPATHSTR];
-  char *argv[MAXARGS];
+  
+  // 환경변수로부터 path 받아와서 parsing -> 저장
+  char *envpath = getenv("PATH");
+  char *parsed[MAXARGS];
+  int cnt = 0;
 
-  sprintf(path, "%s/%s", getcwd(NULL, 0), file);
-  if(access(file, X_OK) == -1){
-    perror("access error");
-    return(-1);
+  char *tmp = strtok(envpath, ":");
+  while (tmp != NULL){
+    char path[MAXPATHSTR];
+    sprintf(path, "%s/%s", tmp, file);
+    parsed[cnt] = (char *)malloc(sizeof(path));
+    strcpy(parsed[cnt], path);
+    tmp = strtok(NULL, ":");
+    cnt++;
   }
 
+  // argv에 가변변수 저장
+  char *argv[MAXARGS];
   va_list ap;
+
   va_start(ap, args);
   argv[0] = (char *)args;
   for(int i=1; argv[i-1] != NULL; i++){
@@ -34,11 +44,13 @@ int myexeclp(const char *file, const char *args, ...){
   }
   va_end(ap);
 
-  if(execve(path, argv, environ) == -1){
-    perror("execve error");
-    return -1;
+  // 환경변수에서 받아온 path 뒤에서부터 실행
+  while (0 <= cnt){
+    if (execve(parsed[cnt], argv, environ) < 0){;}
+    cnt--;
   }
-	return 0;
+
+	return -1;
 }
 
 int main(void) {

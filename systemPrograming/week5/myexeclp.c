@@ -45,7 +45,7 @@ int myexeclp(const char *file, const char *args, ...){
   va_end(ap);
 
   // 환경변수에서 받아온 path 뒤에서부터 실행
-  while (0 <= cnt){
+  while (0 < cnt){
     if (execve(parsed[cnt-1], argv, environ) < 0){;}
     cnt--;
   }

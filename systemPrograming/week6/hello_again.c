@@ -13,7 +13,7 @@ int main(void) {
 
     sigemptyset(&chkset);
     sigaddset(&chkset, SIGINT);
-    sigprocmask(SIG_BLOCK, &chkset, NULL);
+    sigprocmask(SIG_SETMASK, &chkset, NULL);
 
 
 	// do not modify

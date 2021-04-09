@@ -9,11 +9,11 @@
 int main(void) {
 
 	int cnt;
-	sigset_t chkset;
-
-	sigemptyset(&chkset);
-	sigaddset(&chkset, SIGINT);
-	sigprocmask(SIG_SETMASK, &chkset, NULL);
+	sigset_t chkset, set;
+	
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+    sigprocmask(SIG_BLOCK, &set, NULL);
 
 
 	// do not modify

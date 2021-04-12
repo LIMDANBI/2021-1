@@ -1,5 +1,5 @@
 TARGET = client myserver
-narmal: $(TARGET)
+normal: $(TARGET)
 client: client.c
 	gcc client.c -o client
 myserver: server.c

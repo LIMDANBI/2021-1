@@ -133,7 +133,7 @@ plt.imshow(med_img, cmap='gray')
 # Edge detection
 img = cv2.imread("lena.png", 0)
 
-edge_sobel =cv2.Sobel(img, -1, 1, 1)
+edge_sobel =cv2.Sobel(img, -1, 1, 1) # 입력 영상, 출력 영상 데이터 타입 (-1 => 입력 영상과 동일), dx(X 방향 미분 차수), dy(Y 방향 미분 차수)
 
 edge_canny = cv2.Canny(img, 100, 200)
 

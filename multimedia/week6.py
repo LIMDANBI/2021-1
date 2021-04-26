@@ -135,7 +135,7 @@ img = cv2.imread("lena.png", 0)
 
 edge_sobel =cv2.Sobel(img, -1, 1, 1) # 입력 영상, 출력 영상 데이터 타입 (-1 => 입력 영상과 동일), dx(X 방향 미분 차수), dy(Y 방향 미분 차수)
 
-edge_canny = cv2.Canny(img, 100, 200)
+edge_canny = cv2.Canny(img, 100, 200) # 입력 영상, 낮은 경계 값, 높은 경계 값
 
 plt.figure()
 plt.title("Original")

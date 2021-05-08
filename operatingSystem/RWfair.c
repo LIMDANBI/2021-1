@@ -240,6 +240,8 @@ char *e[L3] = {
  * alive 값이 0이 되면 무한 루프를 빠져나와 스레드를 자연스럽게 종료한다.
  */
 int alive = 1;
+int read_count = 0;
+pthread_mutex_t rw_mutex, rc_mutex, fifo_mutex;
 
 /*
  * Reader 스레드는 같은 문자를 N번 출력한다. 예를 들면 <AAA...AA> 이런 식이다.
@@ -260,16 +262,27 @@ void *reader(void *arg)
      */
     while (alive)
     {
-        /*
-         * Begin Critical Section
-         */
+        // Begin Critical Section
+        pthread_mutex_lock(&fifo_mutex); // 순서가 되기 위해 대기
+        pthread_mutex_lock(&rc_mutex);
+        read_count++;
+        if (read_count == 1)
+            pthread_mutex_lock(&rw_mutex);
+        pthread_mutex_unlock(&fifo_mutex);
+        pthread_mutex_unlock(&rc_mutex);
+
+        // Critical Section
         printf("<");
         for (i = 0; i < N; ++i)
             printf("%c", 'A' + id);
         printf(">");
-        /* 
-         * End Critical Section
-         */
+
+        // End Critical Section
+        pthread_mutex_lock(&rc_mutex);
+        read_count--;
+        if (read_count == 0)
+            pthread_mutex_unlock(&rw_mutex); // 더 이상 reader가 없으므로 writer 허용
+        pthread_mutex_unlock(&rc_mutex);
     }
     pthread_exit(0);
 }
@@ -299,9 +312,12 @@ void *writer(void *arg)
      */
     while (alive)
     {
-        /*
-         * Begin Critical Section
-         */
+        // Begin Critical Section
+        pthread_mutex_lock(&fifo_mutex);
+        pthread_mutex_lock(&rw_mutex);
+        pthread_mutex_unlock(&fifo_mutex);
+
+        // Critical Section
         printf("\n");
         switch (id)
         {
@@ -328,9 +344,9 @@ void *writer(void *arg)
             break;
         default:;
         }
-        /* 
-         * End Critical Section
-         */
+
+        // End Critical Section
+        pthread_mutex_unlock(&rw_mutex);
     }
     pthread_exit(0);
 }
@@ -347,6 +363,10 @@ int main(void)
     pthread_t rthid[RNUM];
     pthread_t wthid[WNUM];
     struct timespec req, rem;
+
+    pthread_mutex_init(&rw_mutex, NULL);
+    pthread_mutex_init(&rc_mutex, NULL);
+    pthread_mutex_init(&fifo_mutex, NULL);
 
     /*
      * Create RNUM reader threads
@@ -386,5 +406,10 @@ int main(void)
         pthread_join(rthid[i], NULL);
     for (i = 0; i < WNUM; ++i)
         pthread_join(wthid[i], NULL);
+
+    pthread_mutex_destroy(&rw_mutex);
+    pthread_mutex_destroy(&rc_mutex);
+    pthread_mutex_destroy(&fifo_mutex);
+
     exit(0);
 }

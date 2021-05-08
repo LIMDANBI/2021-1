@@ -240,6 +240,8 @@ char *e[L3] = {
  * alive 값이 0이 되면 무한 루프를 빠져나와 스레드를 자연스럽게 종료한다.
  */
 int alive = 1;
+int read_count = 0, write_count = 0;
+pthread_mutex_t rw_mutex, rc_mutex, wc_mutex, try_read;
 
 /*
  * Reader 스레드는 같은 문자를 N번 출력한다. 예를 들면 <AAA...AA> 이런 식이다.
@@ -260,16 +262,27 @@ void *reader(void *arg)
      */
     while (alive)
     {
-        /*
-         * Begin Critical Section
-         */
+        // Begin Critical Section
+        pthread_mutex_lock(&try_read); //reader가 들어가려고 함
+        pthread_mutex_lock(&rc_mutex); // read_count update
+        read_count++;
+        if (read_count == 1)
+            pthread_mutex_lock(&rw_mutex); 
+        pthread_mutex_unlock(&rc_mutex); // read_try가 가능한 경우, 다른 reader 허용 => writer 선호
+        pthread_mutex_unlock(&try_read); 
+
+        // Critical Section
         printf("<");
         for (i = 0; i < N; ++i)
             printf("%c", 'A' + id);
         printf(">");
-        /* 
-         * End Critical Section
-         */
+
+        // End Critical Section
+        pthread_mutex_lock(&rc_mutex); // read_count update
+        read_count--;
+        if (read_count == 0)
+            pthread_mutex_unlock(&rw_mutex); // 더 이상 reader가 없으므로 writer 허용
+        pthread_mutex_unlock(&rc_mutex); 
     }
     pthread_exit(0);
 }
@@ -299,9 +312,15 @@ void *writer(void *arg)
      */
     while (alive)
     {
-        /*
-         * Begin Critical Section
-         */
+        // Begin Critical Section
+        pthread_mutex_lock(&wc_mutex);
+        write_count++;
+        if (write_count == 1)
+            pthread_mutex_lock(&try_read);  //read가 들어오려는 시도 금지
+        pthread_mutex_unlock(&wc_mutex);
+        pthread_mutex_lock(&rw_mutex);
+
+        // Critical Section
         printf("\n");
         switch (id)
         {
@@ -328,9 +347,13 @@ void *writer(void *arg)
             break;
         default:;
         }
-        /* 
-         * End Critical Section
-         */
+        // End Critical Section
+        pthread_mutex_unlock(&rw_mutex);
+        pthread_mutex_lock(&wc_mutex);
+        write_count--;
+        if(write_count == 0)
+            pthread_mutex_unlock(&try_read);    // read가 들어오려는 시도 허용
+        pthread_mutex_unlock(&wc_mutex);
     }
     pthread_exit(0);
 }
@@ -347,6 +370,11 @@ int main(void)
     pthread_t rthid[RNUM];
     pthread_t wthid[WNUM];
     struct timespec req, rem;
+
+    pthread_mutex_init(&rw_mutex, NULL);
+    pthread_mutex_init(&rc_mutex, NULL);
+    pthread_mutex_init(&wc_mutex, NULL);
+    pthread_mutex_init(&try_read, NULL);
 
     /*
      * Create RNUM reader threads
@@ -386,5 +414,11 @@ int main(void)
         pthread_join(rthid[i], NULL);
     for (i = 0; i < WNUM; ++i)
         pthread_join(wthid[i], NULL);
+
+    pthread_mutex_destroy(&rw_mutex);
+    pthread_mutex_destroy(&rc_mutex);
+    pthread_mutex_destroy(&wc_mutex);
+    pthread_mutex_destroy(&try_read);
+
     exit(0);
 }

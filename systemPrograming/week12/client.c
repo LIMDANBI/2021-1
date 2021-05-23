@@ -23,7 +23,7 @@ void fatal(char *msg)
 
 int main(int argc, char *argv[])
 {
-    int clnt_sock;
+    int clnt_sock, cnt, fd;
     static struct sockaddr_in serv_adr;
     struct hostent *host;
 
@@ -46,15 +46,26 @@ int main(int argc, char *argv[])
     if (connect(clnt_sock, (struct sockaddr *)&serv_adr, sizeof(serv_adr)) < 0)
         fatal("connect error");
 
-    char filename[BSIZE] = "\0";
+    char buf[BSIZE] = "\0", filename[BSIZE] = "\0";
+    read(clnt_sock, buf, BSIZE); // cnt 읽어옴
+    cnt = atoi(buf);
+    printf("%d\n", cnt);
+
+    for (int i = 0; i < cnt; i++) // 파일 목록 출력
+    {
+        read(clnt_sock, buf, BSIZE);
+        printf("%s\n", buf);
+    }
+
     printf("Please enter the filename: ");
     fgets(filename, BSIZE, stdin); // 원하는 파일명 입력
     filename[strlen(filename) - 1] = '\0';
 
-    write(clnt_sock, filename, BSIZE); // 쓰고 
-    read(clnt_sock, filename, BSIZE); // 읽어와서
-    printf("%s\n", filename); // 출력 
-
+    write(clnt_sock, filename, BSIZE);                                 //해당 파일을 서버에 요청
+    if ((fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0666)) < 0) // 파일만들고
+        fatal("file open error");
+    while (read(clnt_sock, buf, BSIZE) > 0) // 서버로부터 내용 받아와서 저장
+        write(fd, buf, BSIZE);
+    close(fd);
     close(clnt_sock);
-
 }

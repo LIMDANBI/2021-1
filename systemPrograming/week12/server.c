@@ -55,10 +55,47 @@ int main()
         fatal("accept error");
 
     char buf[BSIZE] = "\0";
-    read(clnt_sock, buf, BSIZE);
-    printf("%s\n", buf);               // 출력
-    write(clnt_sock, buf, BSIZE); // 다시 씀
+    int cnt = 0, fd, nread;
+    DIR *dir;
+    struct dirent *dent;
+    struct stat st;
+    dir = opendir(".");
+    while ((dent = readdir(dir)))
+    {
+        if (lstat(dent->d_name, &st) < 0)
+            fatal("lstat error");
+        if (!(S_ISDIR(st.st_mode)))
+            cnt++;
+    }
+    sprintf(buf, "%d", cnt);
+    write(clnt_sock, buf, BSIZE); // 총 파일 수 보냄
+    // read(clnt_sock, buf, BSIZE);
+    // printf("%s\n", buf);               // 출력
+    // write(clnt_sock, buf, BSIZE); // 다시 씀
 
+    rewinddir(dir);
+    while ((dent = readdir(dir))) // 파일 목록을 클라이언트에게 보냄
+    {
+
+        if (lstat(dent->d_name, &st) < 0)
+            fatal("lstat error");
+        if (!(S_ISDIR(st.st_mode)))
+        {
+            sprintf(buf, "%s", dent->d_name);
+            printf("%s\n", buf);
+            write(clnt_sock, buf, sizeof(buf));
+        }
+    }
+    closedir(dir);
+
+    read(clnt_sock, buf, BSIZE);        // 요청 파일 이름을 읽어옴
+    printf("요청받은 파일 : <%s> \n", buf);
+    if ((fd = open(buf, O_RDONLY)) < 0) // 해당 파일을 O_RDONLY로 열어서
+        fatal("file open error");
+
+    while ((nread = read(fd, buf, BSIZE)) > 0) // 파일 내용을 클라이언트에 전송
+        write(clnt_sock, buf, nread);
+    
     close(clnt_sock);
     close(serv_sock);
 }

@@ -14,7 +14,7 @@
 #include <dirent.h>
 
 #define PORT 7000
-#define BSIZE 1024
+#define BSIZE 256
 
 void fatal(char *msg)
 {
@@ -57,7 +57,7 @@ int main()
         if (clnt_sock < 0)
             fatal("accept error");
 
-        char buf[BSIZE] = "\0";
+        char buf[BSIZE] = "";
         int cnt = 0, fd, nread;
         DIR *dir;
         struct dirent *dent;
@@ -82,14 +82,14 @@ int main()
             if (!(S_ISDIR(st.st_mode)))
             {
                 sprintf(buf, "%s", dent->d_name);
-                printf("%s\n", buf);
+                // printf("%s\n", buf);
                 write(clnt_sock, buf, sizeof(buf));
             }
         }
         closedir(dir);
 
         read(clnt_sock, buf, BSIZE); // 요청 파일 이름을 읽어옴
-        printf("요청받은 파일 : <%s> \n", buf);
+        // printf("요청받은 파일 : <%s> \n", buf);
         if ((fd = open(buf, O_RDWR)) < 0) // 해당 파일을 O_RDONLY로 열어서
             fatal("file open error");
 

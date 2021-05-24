@@ -93,10 +93,10 @@ static sem_t sem;
  */
 static void *worker(void *param)
 {
+    task_t *t = (task_t *)malloc(sizeof(task_t));
     while (1)
     {
         sem_wait(&sem); // 수행할 작업이 있을 때까지 wait
-        task_t *t = (task_t *)malloc(sizeof(task_t));
         if (!dequeue(t))            // queue에서 꺼내서
             (t->function)(t->data); // 작업 실행
     }
@@ -136,8 +136,8 @@ void pool_shutdown(void)
 {
     pthread_mutex_destroy(&mutex); // 세마포 소멸
     sem_destroy(&sem);             // 뮤텍스 소멸
-    for (int i = 0; i < NUMBER_OF_BEES; i++)
-    { // 스레드 철회, 조인
+    for (int i = 0; i < NUMBER_OF_BEES; i++) // 스레드 철회, 조인
+    {
         pthread_cancel(bee[i]);
         pthread_join(bee[i], NULL);
     }

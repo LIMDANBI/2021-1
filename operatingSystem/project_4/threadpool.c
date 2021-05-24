@@ -4,9 +4,10 @@
  */
 #include <pthread.h>
 #include <stdio.h>
-#include <fcntl.h>           /* For O_* constants */
-#include <sys/stat.h>        /* For mode constants */
+#include <fcntl.h>    /* For O_* constants */
+#include <sys/stat.h> /* For mode constants */
 #include <semaphore.h>
+#include <stdlib.h>
 #include "threadpool.h"
 
 /*
@@ -18,7 +19,8 @@
 /*
  * 스레드를 통해 실행할 작업 함수와 함수의 인자정보 구조체 타입
  */
-typedef struct {
+typedef struct
+{
     void (*function)(void *p);
     void *data;
 } task_t;
@@ -27,6 +29,7 @@ typedef struct {
  * 스레드 풀의 FIFO 대기열인 worktodo 배열로 원형 버퍼의 역할을 한다.
  */
 static task_t worktodo[QUEUE_SIZE];
+int in = 0, out = 0, size = 0;
 
 /*
  * mutex는 대기열을 조회하거나 변경하기 위해 사용하는 상호배타 락이다.
@@ -39,6 +42,20 @@ static pthread_mutex_t mutex;
  */
 static int enqueue(task_t t)
 {
+    pthread_mutex_lock(&mutex); // lock을 걸고 queue에 접근
+    if (size == QUEUE_SIZE)
+    {
+        pthread_mutex_unlock(&mutex);
+        return 1;
+    }
+    else
+    {
+        worktodo[in] = t;
+        in = (in + 1) % QUEUE_SIZE;
+        size++;
+        pthread_mutex_unlock(&mutex);
+        return 0;
+    }
 }
 
 /*
@@ -47,6 +64,21 @@ static int enqueue(task_t t)
  */
 static int dequeue(task_t *t)
 {
+    pthread_mutex_lock(&mutex); // lock을 걸고 queue에 접근
+    if (size == 0)
+    {
+        pthread_mutex_unlock(&mutex);
+        return 1;
+    }
+    else
+    {
+        t->data = worktodo[out].data;
+        t->function = worktodo[out].function;
+        out = (out + 1) % QUEUE_SIZE;
+        size--;
+        pthread_mutex_unlock(&mutex);
+        return 0;
+    }
 }
 
 /*
@@ -54,13 +86,21 @@ static int dequeue(task_t *t)
  * 세마포 sem은 카운팅 세마포로 그 값은 대기열에 입력된 작업의 갯수를 나타낸다.
  */
 static pthread_t bee[NUMBER_OF_BEES];
-static sem_t *sem;
+static sem_t sem;
 
 /*
  * 풀에 있는 일꾼 스레드로 FIFO 대기열에서 기다리고 있는 작업을 하나씩 꺼내서 실행한다.
  */
 static void *worker(void *param)
 {
+    while (1)
+    {
+        sem_wait(&sem); // 수행할 작업이 있을 때까지 wait
+        task_t *t = (task_t *)malloc(sizeof(task_t));
+        if (!dequeue(t))            // queue에서 꺼내서
+            (t->function)(t->data); // 작업 실행
+    }
+    pthread_exit(0);
 }
 
 /*
@@ -69,6 +109,13 @@ static void *worker(void *param)
  */
 int pool_submit(void (*f)(void *p), void *p)
 {
+    task_t t;
+    t.function = f;
+    t.data = p;
+    if (enqueue(t)) // 요청 실패
+        return 1;
+    sem_post(&sem);
+    return 0;
 }
 
 /*
@@ -76,6 +123,10 @@ int pool_submit(void (*f)(void *p), void *p)
  */
 void pool_init(void)
 {
+    sem_init(&sem, 0, 0);                    // 세마포 초기화
+    pthread_mutex_init(&mutex, NULL);        // 뮤텍스 초기화
+    for (int i = 0; i < NUMBER_OF_BEES; i++) // 스레드 생성
+        pthread_create(&bee[i], NULL, worker, NULL);
 }
 
 /*
@@ -83,4 +134,11 @@ void pool_init(void)
  */
 void pool_shutdown(void)
 {
+    pthread_mutex_destroy(&mutex); // 세마포 소멸
+    sem_destroy(&sem);             // 뮤텍스 소멸
+    for (int i = 0; i < NUMBER_OF_BEES; i++)
+    { // 스레드 철회, 조인
+        pthread_cancel(bee[i]);
+        pthread_join(bee[i], NULL);
+    }
 }

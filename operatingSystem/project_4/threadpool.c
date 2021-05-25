@@ -96,7 +96,7 @@ static void *worker(void *param)
     task_t *t = (task_t *)malloc(sizeof(task_t));
     while (1)
     {
-        sem_wait(&sem); // 수행할 작업이 있을 때까지 wait
+        sem_wait(&sem);             // 수행할 작업이 있을 때까지 wait
         if (!dequeue(t))            // queue에서 꺼내서
             (t->function)(t->data); // 작업 실행
     }
@@ -134,11 +134,14 @@ void pool_init(void)
  */
 void pool_shutdown(void)
 {
-    pthread_mutex_destroy(&mutex); // 세마포 소멸
-    sem_destroy(&sem);             // 뮤텍스 소멸
     for (int i = 0; i < NUMBER_OF_BEES; i++) // 스레드 철회, 조인
     {
         pthread_cancel(bee[i]);
         pthread_join(bee[i], NULL);
     }
+    sem_destroy(&sem);             // 뮤텍스 소멸
+    pthread_mutex_destroy(&mutex); // 세마포 소멸
 }
+// 미묘하지만 논리적으로 보면 세마포를 먼저 지우고 스레드를 캔슬하면, 만일 대기열이 비어 있지 않은 경우 race condition이 발생할 수 있음
+// 반면에 스레드를 먼저 캔슬하면 기본이 지연 캔슬이기 때문에 철회지점인 sem_wait() 에서 철회
+// 그런 다음 세마포를 지우면 그런 문제가 발생할 우려도 없고 자연스럽게 하던 일을 다 마치고 종료 ( 미묘하지만 결과가 전혀 달라질 수 있는 부분 !!)

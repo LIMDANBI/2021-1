@@ -230,7 +230,7 @@ void changeDirectory(char **args) // cd ** cd ~ / cd => root 로 이동하도록
         {
             if ((arg = args[i + 1]) != NULL)
                 break;
-            else{}
+            else
                 return;
         }
     }

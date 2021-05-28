@@ -166,7 +166,7 @@ int main()
                 }
                 else //parent
                 {
-                    if (isbackgorund) // ** 수정 필요 
+                    if (isbackgorund) // ** 수정 필요
                     {
                         printf("prange %d turn %d cmdNum %d\n", prange, turn, cmdNum); // 잘 출력되나 확인
 
@@ -176,7 +176,7 @@ int main()
                             printf("\n[%d] %d\n", backgorund, getpid());
                             continue;
                         }
-                        else if(cmdNum - prange < turn)
+                        else if (cmdNum - prange < turn)
                         {
                             if (turn == cmdNum - 1)
                             {
@@ -228,10 +228,16 @@ void changeDirectory(char **args) // cd ** cd ~ / cd => root 로 이동하도록
     {
         if (!strcmp(args[i], "cd"))
         {
-            if ((arg = args[i + 1]) != NULL)
-                break;
-            else
+            arg = args[i + 1];
+            if (arg == NULL || !strcmp(arg, "~"))
+            {
+                chdir(rootPath);
+                strcpy(currentPath, rootPath);
+                strcpy(prompt, "~");
                 return;
+            }
+            else
+                break;
         }
     }
 

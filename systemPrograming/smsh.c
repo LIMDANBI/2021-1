@@ -148,7 +148,7 @@ int main()
                     }
 
                     int pipeNum = 0;
-                    for (int i = 0; args[i] != NULL; i++) // pipe 검사 
+                    for (int i = 0; args[i] != NULL; i++) // pipe 검사
                     {
                         if (!strcmp(args[i], "|"))
                             pipeNum++;
@@ -409,7 +409,8 @@ void pipefunc(char **args, int pipeNum) // pipe (크게 3 part로 분리 : 첫�
     // 2. 마지막 pipe 전까지
     for (int i = 0; i < pipeNum - 1; i++)
     {
-        pipe(pipes[i + 1]); // 파이프 생성
+        if (pipe(pipes[i + 1]) < 0) // pipe 생성
+            fatal("pipe error");
         bzero(arg1, sizeof(arg1));
         for (k = 0; strcmp(args[idx], "|"); k++)
         {

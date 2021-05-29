@@ -122,31 +122,6 @@ int main()
                     fatal("fork error");
                 else if (pid == 0) //child
                 {
-                    for (int i = 0; args[i] != NULL; i++) // redirection 검사 (<, >, >> 3개 지원)
-                    {
-                        if (!strcmp(args[i], "<"))
-                        {
-                            redirectIn(args);
-                            if (execvp(args[0], args) == -1)
-                                fatal("execvp error");
-                            break;
-                        }
-                        else if (!strcmp(args[i], ">"))
-                        {
-                            redirectOut(args);
-                            if (execvp(args[0], args) == -1)
-                                fatal("execvp error");
-                            break;
-                        }
-                        else if (!strcmp(args[i], ">>"))
-                        {
-                            redirectOutAppend(args);
-                            if (execvp(args[0], args) == -1)
-                                fatal("execvp error");
-                            break;
-                        }
-                    }
-
                     int pipeNum = 0;
                     for (int i = 0; args[i] != NULL; i++) // pipe 검사
                     {
@@ -154,11 +129,38 @@ int main()
                             pipeNum++;
                     }
                     if (pipeNum > 0)
-                        pipefunc(args, pipeNum); // 실행
+                        pipefunc(args, pipeNum); // 실행 => 함수 내부에서 redirection 검사함
                     else
                     {
-                        if (execvp(args[0], args) == -1) // redirection 과 pipe 없는 경우
-                            fatal("execvp error");
+                        for (int i = 0; args[i] != NULL; i++) // redirection 검사 (<, >, >> 3개 지원)
+                        {
+                            if (!strcmp(args[i], "<"))
+                            {
+                                redirectIn(args);
+                                if (execvp(args[0], args) == -1)
+                                    fatal("execvp error");
+                                break;
+                            }
+                            else if (!strcmp(args[i], ">"))
+                            {
+                                redirectOut(args);
+                                if (execvp(args[0], args) == -1)
+                                    fatal("execvp error");
+                                break;
+                            }
+                            else if (!strcmp(args[i], ">>"))
+                            {
+                                redirectOutAppend(args);
+                                if (execvp(args[0], args) == -1)
+                                    fatal("execvp error");
+                                break;
+                            }
+                            else
+                            {
+                                if (execvp(args[0], args) == -1) // redirection 과 pipe 없는 경우
+                                    fatal("execvp error");
+                            }
+                        }
                     }
                 }
                 else //parent
@@ -378,12 +380,12 @@ int redirectOutAppend(char **args) //redirecting Ouput append >>
     return 0;
 }
 
-void pipefunc(char **args, int pipeNum) // pipe (크게 3 part로 분리 : 첫번째 파이프전 - 마지막 파이프 전까지 - 마지막 파이프 뒤)
+void pipefunc(char **args, int pipeNum) // pipe | (크게 3 part로 분리 : 첫번째 파이프전 - 마지막 파이프 전까지 - 마지막 파이프 뒤)
 {
     int pipes[pipeNum][2];
     pid_t pid;
     int idx = 0, k = 0;
-    char *arg1[512];
+    char *arg1[512], *filename;
 
     for (idx = 0; strcmp(args[idx], "|"); idx++)
         arg1[idx] = args[idx];
@@ -393,7 +395,7 @@ void pipefunc(char **args, int pipeNum) // pipe (크게 3 part로 분리 : 첫�
     if (pipe(pipes[0]) < 0) // pipe 생성
         fatal("pipe error");
 
-    // 1. 첫번째 파이프 전
+    // 1. 첫번째 파이프 전 명령어
     if ((pid = fork()) < 0)
         fatal("fork error");
     else if (pid == 0)
@@ -438,11 +440,38 @@ void pipefunc(char **args, int pipeNum) // pipe (크게 3 part로 분리 : 첫�
         wait(NULL);
     }
 
+    // 3. 마지막 파이프 뒤 명령어
+    int isredirectout = 0, isredirectoutappend = 0; // redirection (>, >> ) 있는지
     bzero(arg1, sizeof(arg1));
     for (k = 0; args[idx] != NULL; k++)
     {
-        arg1[k] = args[idx];
-        idx++;
+        if (!strcmp(args[idx], ">")) // > 명령어가 있는 경우
+        {
+            isredirectout = 1;
+            filename = args[idx + 1];
+            if (filename == NULL)
+            {
+                printf("Enter filename\n");
+                return;
+            }
+            break;
+        }
+        else if (!strcmp(args[idx], ">>")) // >> 명령어가 있는 경우
+        {
+            isredirectoutappend = 1;
+            filename = args[idx + 1];
+            if (filename == NULL)
+            {
+                printf("Enter filename\n");
+                return;
+            }
+            break;
+        }
+        else
+        {
+            arg1[k] = args[idx];
+            idx++;
+        }
     }
     arg1[k] = NULL;
 
@@ -451,8 +480,23 @@ void pipefunc(char **args, int pipeNum) // pipe (크게 3 part로 분리 : 첫�
         fatal("fork error");
     else if (pid == 0)
     {
+        int fd;
         close(STDIN_FILENO);
         dup2(pipes[pipeNum - 1][0], STDIN_FILENO);
+        if (isredirectout)
+        {
+            if ((fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0644)) == -1)
+                fatal("file open error");
+            dup2(fd, STDOUT_FILENO);
+            close(fd);
+        }
+        else if (isredirectoutappend)
+        {
+            if ((fd = open(filename, O_RDWR | O_CREAT | O_APPEND, 0644)) == -1)
+                fatal("file open error");
+            dup2(fd, STDOUT_FILENO);
+            close(fd);
+        }
         if (execvp(*arg1, arg1) < 0)
             fatal("execvp error");
     }

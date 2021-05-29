@@ -23,7 +23,7 @@ int parsing(char *cmdline, const char *delimiters, char **args); // 파싱
 int redirectIn(char **args);                                     // redirecting Input
 int redirectOut(char **args);                                    // redirecting Ouput
 int redirectOutAppend(char **args);                              // redirecting Ouput append
-int pipefunc(char **args);                                       // pipe
+void pipefunc(char **args, int pipeNum);                         // pipe
 
 int main()
 {
@@ -107,11 +107,6 @@ int main()
         for (int turn = 0; turn < cmdNum; turn++) // 명령어 순차 실행
         {
             char *args[512];
-            // char cmd_tmp[512];
-            // strcpy(cmd_tmp, cmd[i]);
-            // printf("\n.%s.\n",cmd_tmp);
-            // printf("cmd .%s.\n", cmd[i]);
-
             int cnt = parsing(cmd[turn], " ", args); // cmdline 파싱
             // printf("args .%s.\n", args[0]); // 파싱 확인
 
@@ -152,17 +147,19 @@ int main()
                         }
                     }
 
-                    for (int i = 0; args[i] != NULL; i++) // pipe 검사  ** 멀티파이프 지원하도록 수정 필요!! **
+                    int pipeNum = 0;
+                    for (int i = 0; args[i] != NULL; i++) // pipe 검사 
                     {
                         if (!strcmp(args[i], "|"))
-                        {
-                            pipefunc(args); // 실행
-                            break;
-                        }
+                            pipeNum++;
                     }
-
-                    if (execvp(args[0], args) == -1) // redirection 과 pipe 없는 경우
-                        fatal("execvp error");
+                    if (pipeNum > 0)
+                        pipefunc(args, pipeNum); // 실행
+                    else
+                    {
+                        if (execvp(args[0], args) == -1) // redirection 과 pipe 없는 경우
+                            fatal("execvp error");
+                    }
                 }
                 else //parent
                 {
@@ -220,7 +217,7 @@ void printHistory() // history 출력
     }
 }
 
-void changeDirectory(char **args) // cd ** cd ~ / cd => root 로 이동하도록 수정 필요
+void changeDirectory(char **args)
 {
     char tmp[1024] = "";
     char *arg;
@@ -381,53 +378,82 @@ int redirectOutAppend(char **args) //redirecting Ouput append >>
     return 0;
 }
 
-int pipefunc(char **args) // pipe
+void pipefunc(char **args, int pipeNum) // pipe (크게 3 part로 분리 : 첫번째 파이프전 - 마지막 파이프 전까지 - 마지막 파이프 뒤)
 {
-
-    int i, j, existpipe = 0, fd[2]; //fd[0]-readEnd , fd[1]-rwriteEnd
+    int pipes[pipeNum][2];
     pid_t pid;
-    char *args1[MAX_LINE / 2 + 1], *args2[MAX_LINE / 2 + 1];
+    int idx = 0, k = 0;
+    char *arg1[512];
 
-    //pipe 명령어를 기점으로 두 배열로 나눠 담음
-    for (i = 0; args[i] != NULL; i++)
+    for (idx = 0; strcmp(args[idx], "|"); idx++)
+        arg1[idx] = args[idx];
+    arg1[idx] = NULL;
+    idx++;
+
+    if (pipe(pipes[0]) < 0) // pipe 생성
+        fatal("pipe error");
+
+    // 1. 첫번째 파이프 전
+    if ((pid = fork()) < 0)
+        fatal("fork error");
+    else if (pid == 0)
     {
-        if (!strcmp(args[i], "|"))
-        {
-            existpipe = 1;
-            break;
-        }
-        args1[i] = args[i];
+        close(STDOUT_FILENO);
+        dup2(pipes[0][1], STDOUT_FILENO);
+        if (execvp(*arg1, arg1) < 0)
+            fatal("execvp error");
     }
+    close(pipes[0][1]);
+    wait(NULL);
 
-    if (existpipe) // 파이프 명령어가 있는 경우
+    // 2. 마지막 pipe 전까지
+    for (int i = 0; i < pipeNum - 1; i++)
     {
-        args1[i] = NULL;
-        for (j = 0; args[j + i + 1] != NULL; j++)
-            args2[j] = args[j + i + 1];
-        args2[j + i + 1] = NULL;
+        pipe(pipes[i + 1]); // 파이프 생성
+        bzero(arg1, sizeof(arg1));
+        for (k = 0; strcmp(args[idx], "|"); k++)
+        {
+            arg1[k] = args[idx];
+            idx++;
+        }
+        arg1[k] = NULL;
+        idx++;
 
-        if (pipe(fd) == -1)
-            fatal("pipe error");
-
-        pid = fork();
-        if (pid < 0) // fork error
-            fatal("fork error");
+        if ((pid = fork()) < 0)
+        {
+            fprintf(stderr, "fork() error\n");
+            exit(1);
+        }
         else if (pid == 0)
         {
-            dup2(fd[1], STDOUT_FILENO);
-            close(fd[0]);
-            if (execvp(args1[0], args1) == -1)
+            close(STDIN_FILENO);
+            close(STDOUT_FILENO);
+            dup2(pipes[i][0], STDIN_FILENO);
+            dup2(pipes[i + 1][1], STDOUT_FILENO);
+            if (execvp(*arg1, arg1) < 0)
                 fatal("execvp error");
         }
-        else
-        {
-            dup2(fd[0], STDIN_FILENO);
-            close(fd[1]);
-            if (execvp(args2[0], args2) == -1)
-                fatal("execvp error");
-        }
+        close(pipes[i + 1][1]);
+        wait(NULL);
     }
-    else //pipe 명령어가 없는 경우
-        return 0;
-    return 1;
+
+    bzero(arg1, sizeof(arg1));
+    for (k = 0; args[idx] != NULL; k++)
+    {
+        arg1[k] = args[idx];
+        idx++;
+    }
+    arg1[k] = NULL;
+
+    // 3. 마지막 pipe 뒤
+    if ((pid = fork()) < 0)
+        fatal("fork error");
+    else if (pid == 0)
+    {
+        close(STDIN_FILENO);
+        dup2(pipes[pipeNum - 1][0], STDIN_FILENO);
+        if (execvp(*arg1, arg1) < 0)
+            fatal("execvp error");
+    }
+    wait(NULL);
 }

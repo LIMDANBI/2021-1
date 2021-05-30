@@ -12,8 +12,8 @@ char rootPath[1024];
 char currentPath[1024];
 char historyPath[1024];
 char prompt[1024] = "~";
-int backgorund = 0;   // 몇번째인지
-int isbackgorund = 0; // background 실행인지
+int backgorund = 0;    // 몇번째인지
+int isbackgorund[512]; // background 실행인지 저장하는 배열 {args[0] == 1 -> 백그라운드 실행}
 
 void fatal(const char *str);                                     // 오류 처리
 void saveHistory(char *cmdline);                                 // history 저장
@@ -38,10 +38,12 @@ int main()
 
     while (1)
     {
-        printf("\n%s%s", prompt, "$ "); // 프롬프트 출력
         fflush(stdout);
+        printf("\n%s%s", prompt, "$ "); // 프롬프트 출력
 
         char *cmd[512];
+        for (int i = 0; i < 512; i++) // 전역 배열 초기화
+            isbackgorund[i] = 0;
         fgets(cmdline, MAX_LINE, stdin); // 사용자 입력 받아오기
         cmdline[strlen(cmdline) - 1] = '\0';
         int spaceremove = strlen(cmdline) - 1;
@@ -66,51 +68,34 @@ int main()
             continue; // 다시 명령어 입력 받음
         }
 
-        // 맨뒤 백그라운드 확인 -> 있는 경우 null로 변경 -> 괄호 적용 여부
-        int prange = 1; // background 실행 적용 범위 체크
-        if (cmdline[strlen(cmdline) - 1] == '&')
+        // cmdline을 쭉 살펴보면서, '&' 있는 경우, ';' 로 변경해서 parsing ( & 정보는 배열에 미리 저장 )
+        int semcnt = 0; // ; 개수
+        for (int i = 0; cmdline[i] != '\0'; i++)
         {
-            isbackgorund = 1;
-            int pmatch = 1;
-            int i = strlen(cmdline) - 2;
-            while (cmdline[i] == ' ') // 공백인 경우
-                i--;
-            if (cmdline[i] == ')') // 괄호를 통해 백그라운드 적용 되는 경우 -> 적용 범위 체크
+            if (cmdline[i] == '&')
             {
-                i--;
-                while (pmatch != 0 && i >= 0)
-                {
-                    if (cmdline[i] == '(')
-                        pmatch--;
-                    else if (cmdline[i] == ')')
-                        pmatch++;
-                    else if (cmdline[i] == ';')
-                        prange++;
-                    i--;
-                }
+                isbackgorund[semcnt] = 1;
+                cmdline[i] = ';';
+                semcnt++;
             }
-            cmdline[strlen(cmdline) - 1] = '\0'; // background 정보 저장 후 지움
+            else if (cmdline[i] == ';')
+                semcnt++;
         }
 
-        // printf("%d\n",prange); // 잘 출력되나 확인
-        // printf("%s\n",cmdline); //잘 지워졌나 확인
-
-        // 괄호->공백 (뒤에서 어짜피 공백 기준으로 파싱함 !)
-        for (int i = 0; i < strlen(cmdline); i++)
-        {
-            if (cmdline[i] == '(' || cmdline[i] == ')')
-                cmdline[i] = ' ';
-        }
-        // printf("%s\n", cmdline); //잘 지워졌나 확인
+        // // 괄호->공백 (뒤에서 어짜피 공백 기준으로 파싱함 !)
+        // for (int i = 0; i < strlen(cmdline); i++)
+        // {
+        //     if (cmdline[i] == '(' || cmdline[i] == ')')
+        //         cmdline[i] = ' ';
+        // }
 
         int cmdNum = parsing(cmdline, ";", cmd);  // ;을 기준으로 분할
         for (int turn = 0; turn < cmdNum; turn++) // 명령어 순차 실행
         {
             char *args[512];
             int cnt = parsing(cmd[turn], " ", args); // cmdline 파싱
-            // printf("args .%s.\n", args[0]); // 파싱 확인
+            args[cnt] = NULL;                        // 배열의 마지막 인자는 null
 
-            args[cnt] = NULL;               // 배열의 마지막 인자는 null
             if (strstr(args[0], "history")) // shell 내장 명령(history)
                 printHistory();
             else if (strstr(args[0], "cd")) // shell 내장 명령(cd)
@@ -155,37 +140,25 @@ int main()
                                     fatal("execvp error");
                                 break;
                             }
-                            else
-                            {
-                                if (execvp(args[0], args) == -1) // redirection 과 pipe 없는 경우
-                                    fatal("execvp error");
-                            }
+                            if (execvp(args[0], args) == -1) // redirection 과 pipe 없는 경우
+                                fatal("execvp error");
                         }
                     }
                 }
                 else //parent
                 {
-                    if (isbackgorund) // ** 수정 필요
+                    if (isbackgorund[turn] == 0 && turn == cmdNum - 1)
+                        backgorund = 0;
+                    // printf("%d %d\n", turn, isbackgorund[turn]);
+                    if (isbackgorund[turn])
                     {
-                        printf("prange %d turn %d cmdNum %d\n", prange, turn, cmdNum); // 잘 출력되나 확인
-
-                        if (cmdNum - prange == turn) // 첫 백그라운드 실행
-                        {
-                            backgorund++;
-                            printf("\n[%d] %d\n", backgorund, getpid());
-                            continue;
-                        }
-                        else if (cmdNum - prange < turn)
-                        {
-                            if (turn == cmdNum - 1)
-                            {
-                                backgorund = 0;
-                                backgorund--;
-                            }
-                            continue;
-                        }
+                        backgorund++;
+                        printf("[%d] %d\n", backgorund, getpid());
+                        if (turn == cmdNum - 1)
+                            backgorund = 0;
+                        continue;
                     }
-                    wait(NULL);
+                    waitpid(pid, NULL, 0);
                 }
             }
         }
@@ -451,7 +424,7 @@ void pipefunc(char **args, int pipeNum) // pipe | (크게 3 part로 분리 : 첫
             filename = args[idx + 1];
             if (filename == NULL)
             {
-                printf("Enter filename\n");
+                printf("syntax error : Enter filename\n");
                 return;
             }
             break;
@@ -462,7 +435,7 @@ void pipefunc(char **args, int pipeNum) // pipe | (크게 3 part로 분리 : 첫
             filename = args[idx + 1];
             if (filename == NULL)
             {
-                printf("Enter filename\n");
+                printf("syntax error : Enter filename\n");
                 return;
             }
             break;

@@ -42,7 +42,7 @@ int main()
         printf("\n%s%s", prompt, "$ "); // 프롬프트 출력
 
         char *cmd[512];
-        for (int i = 0; i < 512; i++) // 전역 배열 초기화
+        for (int i = 0; i < 512; i++) // & 정보를 저장하는 전역 배열 초기화
             isbackgorund[i] = 0;
         fgets(cmdline, MAX_LINE, stdin); // 사용자 입력 받아오기
         cmdline[strlen(cmdline) - 1] = '\0';
@@ -68,8 +68,14 @@ int main()
             continue; // 다시 명령어 입력 받음
         }
 
+        // 괄호를 통한 백그라운드 처리
+        int group = 0;
+        if (cmdline[strlen(cmdline) - 1] == '&' && cmdline[0] == '(' && cmdline[strlen(cmdline) - 2] == ')')
+            group = 1;
+
         // cmdline을 쭉 살펴보면서, '&' 있는 경우, ';' 로 변경해서 parsing ( & 정보는 배열에 미리 저장 )
         int semcnt = 0; // ; 개수
+
         for (int i = 0; cmdline[i] != '\0'; i++)
         {
             if (cmdline[i] == '&')
@@ -82,14 +88,15 @@ int main()
                 semcnt++;
         }
 
-        // // 괄호->공백 (뒤에서 어짜피 공백 기준으로 파싱함 !)
-        // for (int i = 0; i < strlen(cmdline); i++)
-        // {
-        //     if (cmdline[i] == '(' || cmdline[i] == ')')
-        //         cmdline[i] = ' ';
-        // }
+        // 괄호->공백 (뒤에서 어짜피 공백 기준으로 파싱함 !)
+        for (int i = 0; i < strlen(cmdline); i++)
+        {
+            if (cmdline[i] == '(' || cmdline[i] == ')')
+                cmdline[i] = ' ';
+        }
 
-        int cmdNum = parsing(cmdline, ";", cmd);  // ;을 기준으로 분할
+        int cmdNum = parsing(cmdline, ";", cmd); // ;을 기준으로 분할
+
         for (int turn = 0; turn < cmdNum; turn++) // 명령어 순차 실행
         {
             char *args[512];
@@ -147,18 +154,31 @@ int main()
                 }
                 else //parent
                 {
-                    if (isbackgorund[turn] == 0 && turn == cmdNum - 1)
-                        backgorund = 0;
-                    // printf("%d %d\n", turn, isbackgorund[turn]);
-                    if (isbackgorund[turn])
+                    if (group == 1)
                     {
-                        backgorund++;
-                        printf("[%d] %d\n", backgorund, getpid());
-                        if (turn == cmdNum - 1)
+                        if (turn == 1)
+                        {
+                            backgorund++;
+                            printf("\n[%d] %d", backgorund, getpid());
                             backgorund = 0;
+                        }
                         continue;
                     }
-                    waitpid(pid, NULL, 0);
+                    else
+                    {
+                        if (isbackgorund[turn] == 0 && turn == cmdNum - 1)
+                            backgorund = 0;
+                        // printf("%d %d\n", turn, isbackgorund[turn]);
+                        if (isbackgorund[turn])
+                        {
+                            backgorund++;
+                            printf("\n[%d] %d", backgorund, getpid());
+                            if (turn == cmdNum - 1)
+                                backgorund = 0;
+                            continue;
+                        }
+                        waitpid(pid, NULL, 0);
+                    }
                 }
             }
         }

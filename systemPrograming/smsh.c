@@ -95,8 +95,7 @@ int main()
                 cmdline[i] = ' ';
         }
 
-        int cmdNum = parsing(cmdline, ";", cmd); // ;을 기준으로 분할
-
+        int cmdNum = parsing(cmdline, ";", cmd);  // ;을 기준으로 분할
         for (int turn = 0; turn < cmdNum; turn++) // 명령어 순차 실행
         {
             char *args[512];
@@ -120,37 +119,37 @@ int main()
                         if (!strcmp(args[i], "|"))
                             pipeNum++;
                     }
-                    if (pipeNum > 0)
-                        pipefunc(args, pipeNum); // 실행 => 함수 내부에서 redirection 검사함
-                    else
+                    if (pipeNum > 0) // pipe 있는 경우 => 함수 내부에서 redirection 검사함
                     {
-                        for (int i = 0; args[i] != NULL; i++) // redirection 검사 (<, >, >> 3개 지원)
+                        pipefunc(args, pipeNum);
+                        continue;
+                    }
+                    for (int i = 0; args[i] != NULL; i++)
+                    {
+                        if (!strcmp(args[i], "<"))
                         {
-                            if (!strcmp(args[i], "<"))
-                            {
-                                redirectIn(args);
-                                if (execvp(args[0], args) == -1)
-                                    fatal("execvp error");
-                                break;
-                            }
-                            else if (!strcmp(args[i], ">"))
-                            {
-                                redirectOut(args);
-                                if (execvp(args[0], args) == -1)
-                                    fatal("execvp error");
-                                break;
-                            }
-                            else if (!strcmp(args[i], ">>"))
-                            {
-                                redirectOutAppend(args);
-                                if (execvp(args[0], args) == -1)
-                                    fatal("execvp error");
-                                break;
-                            }
-                            if (execvp(args[0], args) == -1) // redirection 과 pipe 없는 경우
+                            redirectIn(args);
+                            if (execvp(args[0], args) == -1)
                                 fatal("execvp error");
+                            continue;
+                        }
+                        else if (!strcmp(args[i], ">"))
+                        {
+                            redirectOut(args);
+                            if (execvp(args[0], args) == -1)
+                                fatal("execvp error");
+                            continue;
+                        }
+                        else if (!strcmp(args[i], ">>"))
+                        {
+                            redirectOutAppend(args);
+                            if (execvp(args[0], args) == -1)
+                                fatal("execvp error");
+                            continue;
                         }
                     }
+                    if (execvp(args[0], args) == -1) // redirection 과 pipe 없는 경우
+                        fatal("execvp error");
                 }
                 else //parent
                 {
@@ -168,7 +167,6 @@ int main()
                     {
                         if (isbackgorund[turn] == 0 && turn == cmdNum - 1)
                             backgorund = 0;
-                        // printf("%d %d\n", turn, isbackgorund[turn]);
                         if (isbackgorund[turn])
                         {
                             backgorund++;

@@ -78,7 +78,9 @@ if __name__ == '__main__':
     # MNIST dataset
 
     # 데이터셋 로드
-    train_data = dsets.MNIST(root='data/', train=True, transform=transforms.ToTensor(), download=True)
+    # train_data = dsets.MNIST(root='data/', train=True, transform=transforms.ToTensor(), download=True)
+    train_data = dsets.CIFAR10(root="data/" , train=True, transform=transform_train, download=True)
+
     
     # 학습 데이터와 검증 데이터 분할
     n_val = int(len(train_data) * val_percent)

@@ -21,19 +21,19 @@ if __name__ == '__main__':
 
     # 전체 데이터를 몇 번이나 볼 것인가?
     start_epoch = 1
-    epoch_num = 
+    epoch_num = 5
 
     # 학습 시에 한번에 몇 개의 데이터를 볼 것인가?
-    batch_size = 
+    batch_size = 10
 
     # 검증 데이터 비율
     val_percent = 0.1
 
     # 학습률
-    lr = 
+    lr = 0.001
 
     # 체크포인트 저장 경로
-    checkpoint_dir = ''
+    checkpoint_dir = '/content/drive/MyDrive/VGG_MNIST/checkpoint_dir/'
 
     # 학습 재개 시 resume = True, resume_checkpoint='재개할 체크포인트 경로'
     resume = False
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # 모델 생성
-    model = VGG16(_input_channel=, num_class=)
+    model = VGG16(_input_channel=1, num_class=10)
     model.to(device)
 
     # 최적화 기법 및 손실 함수

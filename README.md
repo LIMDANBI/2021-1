@@ -10,12 +10,12 @@
 > - semaphore programming
 
 3. 시스템프로그래밍 
-- file system
-- socket programming
-- small shell
+> - file system
+> - socket programming
+> - small shell
 
 4. 컴퓨터네트워크
-- socket(TCP/IP) programming
+> - socket(TCP/IP) programming
 
 5. 컴퓨터구조
 

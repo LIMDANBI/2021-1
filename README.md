@@ -1,13 +1,13 @@
 # 2021-1
 ### 수강 과목 
 1. 멀티미디어정보처리
-- VGG model 구현
+> - VGG model 구현
 
 2. 운영체제론 
-- mini shell
-- thread programming
-- mutex lock programming
-- semaphore programming
+> - mini shell
+> - thread programming
+> - mutex lock programming
+> - semaphore programming
 
 3. 시스템프로그래밍 
 - file system
